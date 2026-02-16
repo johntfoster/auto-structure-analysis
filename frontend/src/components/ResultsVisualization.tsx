@@ -16,7 +16,7 @@ interface Member {
   start_node: number
   end_node: number
   axial_force: number
-  stress: number
+  stress?: number
   stress_ratio: number
 }
 

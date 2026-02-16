@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider } from '../contexts/ThemeContext'
 import Capture from '../pages/Capture'
 
 const queryClient = new QueryClient({
@@ -14,9 +15,11 @@ const queryClient = new QueryClient({
 
 const renderWithRouter = (component: React.ReactElement) => {
   return render(
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{component}</BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>{component}</BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }
 
@@ -96,11 +99,9 @@ describe('Camera Component', () => {
     expect(mockGetUserMedia).toHaveBeenCalled()
   })
 
-  it('shows marker download modal when button clicked', () => {
+  it('shows marker print link', () => {
     renderWithRouter(<Capture />)
-    const button = screen.getByText(/Download ArUco Marker/i)
-    fireEvent.click(button)
-
-    expect(screen.getByText(/Print this marker/i)).toBeInTheDocument()
+    const link = screen.getByText(/Print ArUco Marker/i)
+    expect(link).toBeInTheDocument()
   })
 })
