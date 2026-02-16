@@ -119,17 +119,36 @@ class ModelServer:
             boxes = result.boxes
             
             for i in range(len(boxes)):
-                conf = float(boxes.conf[i])
+                # Handle both scalar and array confidence values
+                conf_val = boxes.conf[i]
+                if hasattr(conf_val, 'item'):
+                    conf = float(conf_val.item())
+                else:
+                    conf = float(conf_val)
                 
                 # Filter by confidence
                 if conf < conf_threshold:
                     continue
                 
                 # Get box coordinates (xyxy format)
-                x1, y1, x2, y2 = boxes.xyxy[i].tolist()
+                xyxy_val = boxes.xyxy[i]
+                if hasattr(xyxy_val, 'tolist'):
+                    coords = xyxy_val.tolist()
+                else:
+                    coords = list(xyxy_val)
+                
+                if len(coords) == 4:
+                    x1, y1, x2, y2 = coords
+                else:
+                    # Handle nested arrays
+                    x1, y1, x2, y2 = coords[0]
                 
                 # Get class
-                cls = int(boxes.cls[i])
+                cls_val = boxes.cls[i]
+                if hasattr(cls_val, 'item'):
+                    cls = int(cls_val.item())
+                else:
+                    cls = int(cls_val)
                 
                 detections.append({
                     'class_id': cls,

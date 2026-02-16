@@ -49,3 +49,7 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# ML datasets (large generated files)
+ml/dataset/
+ml/models/*.pt

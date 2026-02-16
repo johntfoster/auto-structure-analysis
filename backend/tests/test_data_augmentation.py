@@ -209,28 +209,29 @@ class TestYOLOAugmenter:
             with open(label_path, 'w') as f:
                 f.write("0 0.5 0.5 0.2 0.2\n")
             
-            # Apply augmentation
-            augmented, boxes = augmenter.augment_image(img_path, label_path, 'full')
+            # Apply augmentation multiple times
+            has_size_change = False
+            has_pixel_change = False
             
-            # Calculate pixel difference
-            diff = np.abs(sample_image.astype(float) - augmented.astype(float))
-            mean_diff = np.mean(diff)
-            
-            # There should be some difference (but augmentation is random, so might be small)
-            # Run multiple times to ensure at least one has significant change
-            has_significant_change = mean_diff > 5.0
-            
-            if not has_significant_change:
-                # Try again
-                for _ in range(5):
-                    augmented, boxes = augmenter.augment_image(img_path, label_path, 'full')
+            for _ in range(10):
+                augmented, boxes = augmenter.augment_image(img_path, label_path, 'full')
+                
+                # Check if size changed (from crop)
+                if augmented.shape != sample_image.shape:
+                    has_size_change = True
+                    continue
+                
+                # Check if pixels changed (only if same size)
+                if not np.array_equal(sample_image, augmented):
+                    # Calculate pixel difference
                     diff = np.abs(sample_image.astype(float) - augmented.astype(float))
                     mean_diff = np.mean(diff)
                     if mean_diff > 5.0:
-                        has_significant_change = True
+                        has_pixel_change = True
                         break
             
-            assert has_significant_change, "Augmentation should produce visible changes"
+            # Should have either size change or pixel change
+            assert has_size_change or has_pixel_change, "Augmentation should produce visible changes"
     
     def test_augment_dataset(self, temp_dataset):
         """Test full dataset augmentation."""
