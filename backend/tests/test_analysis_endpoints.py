@@ -6,7 +6,7 @@ import pytest
 def test_analyze_endpoint_success(client, sample_image):
     """Test successful image analysis."""
     files = {"file": ("test.png", sample_image, "image/png")}
-    data = {"scale_length_mm": 100.0}
+    data = {"scale_length_mm": "100.0", "material": "steel"}
     
     response = client.post("/api/v1/analyze", files=files, data=data)
     
@@ -18,21 +18,22 @@ def test_analyze_endpoint_success(client, sample_image):
 
 
 def test_analyze_endpoint_no_scale(client, sample_image):
-    """Test analysis with default scale parameter."""
+    """Test analysis without scale fails appropriately."""
     files = {"file": ("test.png", sample_image, "image/png")}
     
+    # Without scale_length_mm and no ArUco marker, should fail
     response = client.post("/api/v1/analyze", files=files)
     
-    assert response.status_code == 200
-    result = response.json()
-    assert "analysis_id" in result
+    # Should return error about missing scale
+    assert response.status_code == 400
+    assert "ArUco marker" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
 async def test_analyze_endpoint_async(async_client, sample_image):
     """Test analysis endpoint with async client."""
     files = {"file": ("test.png", sample_image, "image/png")}
-    data = {"scale_length_mm": 100.0}
+    data = {"scale_length_mm": "100.0", "material": "steel"}
     
     response = await async_client.post("/api/v1/analyze", files=files, data=data)
     
@@ -45,7 +46,8 @@ def test_get_analysis_success(client, sample_image):
     """Test retrieving analysis results."""
     # First, create an analysis
     files = {"file": ("test.png", sample_image, "image/png")}
-    create_response = client.post("/api/v1/analyze", files=files)
+    data = {"scale_length_mm": "100.0", "material": "steel"}
+    create_response = client.post("/api/v1/analyze", files=files, data=data)
     analysis_id = create_response.json()["analysis_id"]
     
     # Then retrieve it
@@ -84,10 +86,11 @@ def test_list_analyses_with_data(client, sample_image):
     """Test listing analyses after creating some."""
     # Create a few analyses
     files = {"file": ("test.png", sample_image, "image/png")}
+    data = {"scale_length_mm": "100.0", "material": "steel"}
     
     analysis_ids = []
     for i in range(3):
-        response = client.post("/api/v1/analyze", files=files)
+        response = client.post("/api/v1/analyze", files=files, data=data)
         analysis_ids.append(response.json()["analysis_id"])
     
     # List all analyses
@@ -121,7 +124,7 @@ async def test_full_analysis_workflow(async_client, sample_image):
     """Test complete workflow: create, retrieve, list."""
     # Create analysis
     files = {"file": ("test.png", sample_image, "image/png")}
-    data = {"scale_length_mm": 100.0}
+    data = {"scale_length_mm": "100.0", "material": "steel"}
     
     create_response = await async_client.post("/api/v1/analyze", files=files, data=data)
     assert create_response.status_code == 200
@@ -146,7 +149,7 @@ async def test_full_analysis_workflow(async_client, sample_image):
 def test_analyze_with_custom_scale(client, sample_image):
     """Test analysis with custom scale length."""
     files = {"file": ("test.png", sample_image, "image/png")}
-    data = {"scale_length_mm": 50.0}  # Custom scale
+    data = {"scale_length_mm": "50.0", "material": "steel"}  # Custom scale
     
     response = client.post("/api/v1/analyze", files=files, data=data)
     

@@ -8,17 +8,23 @@ from app.models.schemas import StructuralModel, Node, Member, Support, Load
 
 def test_simple_truss_solver(simple_truss_model, simple_loads):
     """Test FEA solver with simple 3-member triangle truss."""
-    results = solve(simple_truss_model, simple_loads)
+    results = solve(simple_truss_model, simple_loads, material_name="steel")
     
     # Verify results structure
     assert len(results.member_forces) == 3
     assert len(results.reactions) == 2
     assert results.max_deflection >= 0
+    assert hasattr(results, "safety_status")
+    assert hasattr(results, "max_stress_ratio")
     
-    # Member forces should not be zero
+    # Member forces should not be zero and should have stress data
     for mf in results.member_forces:
         assert mf.member_id in ["M1", "M2", "M3"]
         assert mf.axial != 0  # All members should have some force
+        assert hasattr(mf, "stress")
+        assert hasattr(mf, "stress_ratio")
+        assert mf.stress >= 0
+        assert mf.stress_ratio >= 0
 
 
 def test_simple_beam_reactions():
@@ -48,7 +54,7 @@ def test_simple_beam_reactions():
     model = StructuralModel(nodes=nodes, members=members, supports=supports)
     loads = [Load(node_id="N3", fx=0.0, fy=-1000.0)]
     
-    results = solve(model, loads)
+    results = solve(model, loads, material_name="steel")
     
     # Check reactions sum to applied load (equilibrium)
     total_reaction_y = sum(r.ry for r in results.reactions)
@@ -81,7 +87,7 @@ def test_cantilever_beam():
     model = StructuralModel(nodes=nodes, members=members, supports=supports)
     loads = [Load(node_id="N2", fx=0.0, fy=-500.0)]
     
-    results = solve(model, loads)
+    results = solve(model, loads, material_name="steel")
     
     # Reaction should equal applied load
     assert len(results.reactions) == 1
@@ -117,7 +123,7 @@ def test_equilibrium_check():
         Load(node_id="N3", fx=0.0, fy=-2000.0),
     ]
     
-    results = solve(model, loads)
+    results = solve(model, loads, material_name="steel")
     
     # Sum of all vertical reactions should equal sum of applied loads
     total_applied_fy = sum(load.fy for load in loads)
@@ -148,7 +154,7 @@ def test_horizontal_load():
     model = StructuralModel(nodes=nodes, members=members, supports=supports)
     loads = [Load(node_id="N3", fx=1000.0, fy=0.0)]
     
-    results = solve(model, loads)
+    results = solve(model, loads, material_name="steel")
     
     # Should have horizontal reaction at pin support
     pin_reaction = next(r for r in results.reactions if r.node_id == "N1")
@@ -177,7 +183,7 @@ def test_zero_load():
     model = StructuralModel(nodes=nodes, members=members, supports=supports)
     loads = [Load(node_id="N3", fx=0.0, fy=-1.0)]  # Very small load (1N)
     
-    results = solve(model, loads)
+    results = solve(model, loads, material_name="steel")
     
     # Sum of reactions should equal small applied load
     total_fy = sum(r.ry for r in results.reactions)

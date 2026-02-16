@@ -7,7 +7,7 @@ from typing import Literal
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 TrussType = Literal["warren", "pratt", "howe", "k_truss", "a_frame"]
@@ -19,6 +19,147 @@ class SyntheticTrussGenerator:
     def __init__(self, image_size: tuple[int, int] = (640, 480)):
         self.image_size = image_size
         self.width, self.height = image_size
+        
+    def create_background(self) -> Image.Image:
+        """Create random background with various patterns."""
+        bg_type = random.choice(['solid', 'gradient', 'noisy', 'textured'])
+        
+        if bg_type == 'solid':
+            # Random light gray/white
+            color = random.randint(200, 255)
+            img = Image.new('RGB', self.image_size, color=(color, color, color))
+            
+        elif bg_type == 'gradient':
+            # Vertical or horizontal gradient
+            img = Image.new('RGB', self.image_size)
+            pixels = img.load()
+            start_color = random.randint(200, 240)
+            end_color = random.randint(240, 255)
+            
+            if random.random() < 0.5:  # Vertical
+                for y in range(self.height):
+                    color = int(start_color + (end_color - start_color) * y / self.height)
+                    for x in range(self.width):
+                        pixels[x, y] = (color, color, color)
+            else:  # Horizontal
+                for x in range(self.width):
+                    color = int(start_color + (end_color - start_color) * x / self.width)
+                    for y in range(self.height):
+                        pixels[x, y] = (color, color, color)
+                        
+        elif bg_type == 'noisy':
+            # Add Gaussian noise to white background
+            base_color = random.randint(220, 250)
+            img_array = np.full((self.height, self.width, 3), base_color, dtype=np.uint8)
+            noise = np.random.normal(0, 10, (self.height, self.width, 3))
+            img_array = np.clip(img_array + noise, 0, 255).astype(np.uint8)
+            img = Image.fromarray(img_array)
+            
+        else:  # textured
+            # Grid pattern like graph paper
+            base_color = random.randint(230, 250)
+            img = Image.new('RGB', self.image_size, color=(base_color, base_color, base_color))
+            draw = ImageDraw.Draw(img)
+            grid_size = random.choice([20, 30, 40, 50])
+            grid_color = max(0, base_color - random.randint(10, 30))
+            
+            for x in range(0, self.width, grid_size):
+                draw.line([(x, 0), (x, self.height)], fill=(grid_color, grid_color, grid_color), width=1)
+            for y in range(0, self.height, grid_size):
+                draw.line([(0, y), (self.width, y)], fill=(grid_color, grid_color, grid_color), width=1)
+        
+        return img
+    
+    def apply_perspective_distortion(self, img: Image.Image) -> Image.Image:
+        """Apply slight perspective distortion to simulate camera angles."""
+        if random.random() < 0.5:
+            return img  # No distortion half the time
+        
+        img_array = np.array(img)
+        h, w = img_array.shape[:2]
+        
+        # Small random rotation
+        if random.random() < 0.7:
+            angle = random.uniform(-5, 5)
+            center = (w / 2, h / 2)
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            img_array = cv2.warpAffine(img_array, M, (w, h), borderValue=(255, 255, 255))
+        
+        # Slight perspective transform
+        if random.random() < 0.3:
+            offset = random.randint(5, 15)
+            pts1 = np.float32([[0, 0], [w, 0], [0, h], [w, h]])
+            pts2 = np.float32([
+                [random.randint(0, offset), random.randint(0, offset)],
+                [w - random.randint(0, offset), random.randint(0, offset)],
+                [random.randint(0, offset), h - random.randint(0, offset)],
+                [w - random.randint(0, offset), h - random.randint(0, offset)]
+            ])
+            M = cv2.getPerspectiveTransform(pts1, pts2)
+            img_array = cv2.warpPerspective(img_array, M, (w, h), borderValue=(255, 255, 255))
+        
+        return Image.fromarray(img_array)
+    
+    def add_random_noise_objects(self, draw: ImageDraw.Draw):
+        """Add random objects/noise that aren't structural elements."""
+        num_objects = random.randint(0, 5)
+        
+        for _ in range(num_objects):
+            obj_type = random.choice(['circle', 'rect', 'line', 'scribble'])
+            
+            if obj_type == 'circle':
+                x = random.randint(0, self.width)
+                y = random.randint(0, self.height)
+                r = random.randint(3, 15)
+                color = random.randint(150, 220)
+                draw.ellipse([x - r, y - r, x + r, y + r], 
+                           outline=(color, color, color), width=1)
+                           
+            elif obj_type == 'rect':
+                x1 = random.randint(0, self.width - 30)
+                y1 = random.randint(0, self.height - 30)
+                x2 = x1 + random.randint(10, 30)
+                y2 = y1 + random.randint(10, 30)
+                color = random.randint(150, 220)
+                draw.rectangle([x1, y1, x2, y2], 
+                             outline=(color, color, color), width=1)
+                             
+            elif obj_type == 'line':
+                x1 = random.randint(0, self.width)
+                y1 = random.randint(0, self.height)
+                x2 = random.randint(0, self.width)
+                y2 = random.randint(0, self.height)
+                color = random.randint(180, 220)
+                draw.line([(x1, y1), (x2, y2)], 
+                        fill=(color, color, color), width=1)
+    
+    def add_text_labels(self, draw: ImageDraw.Draw):
+        """Add text labels like real engineering drawings."""
+        if random.random() < 0.4:  # 40% of images get text
+            num_labels = random.randint(1, 4)
+            
+            for _ in range(num_labels):
+                x = random.randint(10, self.width - 100)
+                y = random.randint(10, self.height - 50)
+                
+                # Random engineering-like text
+                labels = [
+                    f"L = {random.randint(10, 50)}m",
+                    f"F = {random.randint(5, 100)}kN",
+                    f"Node {random.randint(1, 20)}",
+                    f"Member {random.randint(1, 30)}",
+                    "Warren Truss",
+                    "Pratt Truss",
+                    f"θ = {random.randint(15, 75)}°",
+                ]
+                text = random.choice(labels)
+                
+                try:
+                    # Try to use a font, fall back to default
+                    font = ImageFont.load_default()
+                    draw.text((x, y), text, fill=(100, 100, 100), font=font)
+                except:
+                    draw.text((x, y), text, fill=(100, 100, 100))
         
     def generate_warren_truss(self, num_panels: int = 3) -> tuple[list, list, list, list]:
         """Generate Warren truss coordinates and annotations."""
@@ -262,9 +403,8 @@ class SyntheticTrussGenerator:
     def draw_structure(self, joints: list, members: list, supports: list, 
                        add_marker: bool = False) -> tuple[Image.Image, list]:
         """Draw structure and return image with YOLO annotations."""
-        # Create image with random background
-        bg_color = random.randint(220, 255)
-        img = Image.new('RGB', self.image_size, color=(bg_color, bg_color, bg_color))
+        # Create image with varied background
+        img = self.create_background()
         draw = ImageDraw.Draw(img)
         
         annotations = []
@@ -342,6 +482,15 @@ class SyntheticTrussGenerator:
             
             annotations.append((class_id, norm_x, norm_y, norm_w, norm_h))
         
+        # Add text labels (before distortion)
+        self.add_text_labels(draw)
+        
+        # Add random noise objects
+        self.add_random_noise_objects(draw)
+        
+        # Apply perspective distortion
+        img = self.apply_perspective_distortion(img)
+        
         # Add slight blur for realism
         if random.random() < 0.3:
             img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
@@ -349,7 +498,7 @@ class SyntheticTrussGenerator:
         return img, annotations
     
     def generate_dataset(self, output_dir: Path, num_images: int = 200, 
-                        train_split: float = 0.8):
+                        train_split: float = 0.8, vary_size: bool = True):
         """Generate complete synthetic dataset."""
         output_dir = Path(output_dir)
         images_dir = output_dir / "images"
@@ -359,11 +508,18 @@ class SyntheticTrussGenerator:
         labels_dir.mkdir(parents=True, exist_ok=True)
         
         truss_types: list[TrussType] = ["warren", "pratt", "howe", "k_truss", "a_frame"]
+        image_sizes = [(640, 480), (1280, 720), (1920, 1080), (800, 600)]
         
         train_files = []
         val_files = []
         
         for i in range(num_images):
+            # Vary image size
+            if vary_size and random.random() < 0.4:
+                size = random.choice(image_sizes)
+                self.image_size = size
+                self.width, self.height = size
+            
             # Random truss type
             truss_type = random.choice(truss_types)
             

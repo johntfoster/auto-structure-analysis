@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { analyzeImage } from '../services/api'
+import ModelEditor from '../components/ModelEditor'
+import { StructuralModel } from '../types/model'
 
-type CaptureMode = 'initial' | 'camera' | 'preview' | 'annotate'
+type CaptureMode = 'initial' | 'camera' | 'preview' | 'annotate' | 'edit'
 
 export default function Capture() {
   const navigate = useNavigate()
@@ -20,6 +22,7 @@ export default function Capture() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showMarkerModal, setShowMarkerModal] = useState(false)
+  const [detectedModel, setDetectedModel] = useState<StructuralModel | null>(null)
 
   // Cleanup video stream on unmount
   useEffect(() => {
@@ -176,9 +179,60 @@ export default function Capture() {
         manual_scale: manualScale ? parseFloat(manualScale) : undefined,
       })
       
-      navigate(`/analyze/${result.id}`)
+      // Convert API result to StructuralModel format
+      const model: StructuralModel = {
+        nodes: result.nodes.map(n => ({
+          id: n.id.toString(),
+          x: n.x,
+          y: n.y,
+          support: n.support_type || 'none',
+          loads: undefined, // Will be added in editor
+        })),
+        members: result.members.map(m => ({
+          id: m.id.toString(),
+          startNodeId: m.start_node.toString(),
+          endNodeId: m.end_node.toString(),
+          material: 'steel',
+        })),
+      }
+      
+      setDetectedModel(model)
+      setMode('edit')
     } catch (err) {
       setError('Analysis failed. Please try again or check your image.')
+      console.error('Analysis error:', err)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleFinalAnalyze = async (model: StructuralModel) => {
+    if (!imageFile) return
+    
+    setIsAnalyzing(true)
+    setError(null)
+    
+    try {
+      // Convert model back to API format for final analysis
+      const loads = model.nodes
+        .filter(n => n.loads && (n.loads.fx !== 0 || n.loads.fy !== 0))
+        .map(n => ({
+          node_id: parseInt(n.id),
+          fx: n.loads!.fx,
+          fy: n.loads!.fy,
+        }))
+
+      const result = await analyzeImage({
+        image: imageFile,
+        marker_position: markerPosition ?? undefined,
+        manual_scale: manualScale ? parseFloat(manualScale) : undefined,
+        material: model.members[0]?.material || 'steel',
+        loads: loads.length > 0 ? loads : undefined,
+      })
+      
+      navigate(`/analyze/${result.id}`)
+    } catch (err) {
+      setError('Analysis failed. Please try again.')
       console.error('Analysis error:', err)
     } finally {
       setIsAnalyzing(false)
@@ -368,6 +422,17 @@ export default function Capture() {
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Edit Mode - Model Editor */}
+      {mode === 'edit' && detectedModel && capturedImage && (
+        <div className="fixed inset-0 z-50 bg-white">
+          <ModelEditor
+            initialModel={detectedModel}
+            backgroundImage={capturedImage}
+            onAnalyze={handleFinalAnalyze}
+          />
         </div>
       )}
 

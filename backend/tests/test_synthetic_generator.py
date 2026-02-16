@@ -222,3 +222,99 @@ def test_different_truss_types():
         assert len(joints) > 0
         assert len(members) > 0
         assert len(supports) > 0
+
+
+def test_create_background_variations():
+    """Test that different background types can be created."""
+    gen = SyntheticTrussGenerator(image_size=(640, 480))
+    
+    # Generate multiple backgrounds to test randomness
+    backgrounds = []
+    for _ in range(10):
+        bg = gen.create_background()
+        assert isinstance(bg, Image.Image)
+        assert bg.size == (640, 480)
+        backgrounds.append(bg)
+    
+    # At least some backgrounds should be different
+    unique_backgrounds = len(set(bg.tobytes() for bg in backgrounds))
+    assert unique_backgrounds > 1, "Backgrounds should vary"
+
+
+def test_apply_perspective_distortion():
+    """Test perspective distortion application."""
+    gen = SyntheticTrussGenerator(image_size=(640, 480))
+    
+    # Create test image
+    img = Image.new('RGB', (640, 480), color=(200, 200, 200))
+    
+    # Apply distortion multiple times (it's random)
+    distorted_count = 0
+    for _ in range(10):
+        result = gen.apply_perspective_distortion(img)
+        assert isinstance(result, Image.Image)
+        assert result.size == (640, 480)
+        
+        # Check if it was actually distorted
+        if result.tobytes() != img.tobytes():
+            distorted_count += 1
+    
+    # Should apply distortion at least sometimes
+    assert distorted_count > 0, "Distortion should be applied sometimes"
+
+
+def test_add_random_noise_objects():
+    """Test random noise objects addition."""
+    gen = SyntheticTrussGenerator(image_size=(640, 480))
+    
+    img = Image.new('RGB', (640, 480), color=(255, 255, 255))
+    from PIL import ImageDraw
+    draw = ImageDraw.Draw(img)
+    
+    # Should not raise any errors
+    gen.add_random_noise_objects(draw)
+    
+    # Hard to test exact output due to randomness, but method should complete
+    assert True
+
+
+def test_add_text_labels():
+    """Test text label addition."""
+    gen = SyntheticTrussGenerator(image_size=(640, 480))
+    
+    img = Image.new('RGB', (640, 480), color=(255, 255, 255))
+    from PIL import ImageDraw
+    draw = ImageDraw.Draw(img)
+    
+    # Should not raise any errors
+    gen.add_text_labels(draw)
+    
+    # Method should complete successfully
+    assert True
+
+
+def test_variable_image_sizes():
+    """Test generation with variable image sizes."""
+    gen = SyntheticTrussGenerator(image_size=(640, 480))
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_dir = Path(tmpdir)
+        
+        # Generate dataset with varying sizes
+        gen.generate_dataset(output_dir, num_images=10, train_split=0.8, vary_size=True)
+        
+        # Check that images were created
+        image_files = list((output_dir / "images").glob("*.jpg"))
+        assert len(image_files) == 10
+        
+        # Load images and check sizes
+        sizes = set()
+        for img_path in image_files:
+            img = Image.open(img_path)
+            sizes.add(img.size)
+        
+        # Should have some variety in sizes (though not guaranteed with only 10 images)
+        # At minimum, all images should be valid
+        assert len(sizes) >= 1
+        for size in sizes:
+            assert size[0] > 0 and size[1] > 0

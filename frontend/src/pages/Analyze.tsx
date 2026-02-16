@@ -2,6 +2,8 @@ import { useParams, Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getAnalysis, reanalyze, type AnalysisResult } from '../services/api'
+import ModelEditor from '../components/ModelEditor'
+import { StructuralModel } from '../types/model'
 
 export default function Analyze() {
   const { id } = useParams<{ id: string }>()
@@ -10,6 +12,8 @@ export default function Analyze() {
   const [selectedMaterial, setSelectedMaterial] = useState<string>('steel')
   const [newLoad, setNewLoad] = useState({ nodeId: '', fx: '', fy: '' })
   const [loads, setLoads] = useState<Array<{ node_id: number; fx: number; fy: number }>>([])
+  const [showEditor, setShowEditor] = useState(false)
+  const [editableModel, setEditableModel] = useState<StructuralModel | null>(null)
 
   const { data: analysis, isLoading, error, refetch } = useQuery<AnalysisResult>({
     queryKey: ['analysis', id],
@@ -30,7 +34,27 @@ export default function Analyze() {
     if (analysis?.loads) {
       setLoads(analysis.loads)
     }
-  }, [analysis])
+    
+    // Initialize editable model from analysis
+    if (analysis) {
+      const model: StructuralModel = {
+        nodes: analysis.nodes.map(n => ({
+          id: n.id.toString(),
+          x: n.x,
+          y: n.y,
+          support: n.support_type || 'none',
+          loads: undefined,
+        })),
+        members: analysis.members.map(m => ({
+          id: m.id.toString(),
+          startNodeId: m.start_node.toString(),
+          endNodeId: m.end_node.toString(),
+          material: selectedMaterial,
+        })),
+      }
+      setEditableModel(model)
+    }
+  }, [analysis, selectedMaterial])
 
   // Draw visualization
   useEffect(() => {
@@ -316,6 +340,24 @@ export default function Analyze() {
     }
   }
 
+  const handleModelEdit = (model: StructuralModel) => {
+    // Convert model to API format and reanalyze
+    const apiLoads = model.nodes
+      .filter(n => n.loads && (n.loads.fx !== 0 || n.loads.fy !== 0))
+      .map(n => ({
+        node_id: parseInt(n.id),
+        fx: n.loads!.fx,
+        fy: n.loads!.fy,
+      }))
+
+    reanalyzeMutation.mutate({
+      material: model.members[0]?.material || 'steel',
+      loads: apiLoads.length > 0 ? apiLoads : undefined,
+    })
+    
+    setShowEditor(false)
+  }
+
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -351,12 +393,20 @@ export default function Analyze() {
             {analysis.structure_type} • {analysis.member_count} members • {analysis.node_count} nodes
           </p>
         </div>
-        <button
-          onClick={handleExport}
-          className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
-        >
-          📥 Export JSON
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowEditor(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+          >
+            ✏️ Edit Model
+          </button>
+          <button
+            onClick={handleExport}
+            className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
+          >
+            📥 Export JSON
+          </button>
+        </div>
       </div>
 
       {/* Visualization */}
@@ -542,6 +592,25 @@ export default function Analyze() {
           </div>
         </div>
       </div>
+
+      {/* Model Editor Modal */}
+      {showEditor && editableModel && (
+        <div className="fixed inset-0 z-50 bg-white">
+          <div className="absolute top-4 right-4 z-10">
+            <button
+              onClick={() => setShowEditor(false)}
+              className="bg-white border shadow-lg px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition"
+            >
+              ✕ Close Editor
+            </button>
+          </div>
+          <ModelEditor
+            initialModel={editableModel}
+            backgroundImage={analysis.image_url}
+            onAnalyze={handleModelEdit}
+          />
+        </div>
+      )}
     </div>
   )
 }

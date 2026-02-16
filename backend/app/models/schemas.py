@@ -1,6 +1,6 @@
 """Pydantic models for API schemas and internal data structures."""
 
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -45,6 +45,8 @@ class MemberForce(BaseModel):
     axial: float  # N (tension positive)
     shear: float  # N
     moment: float  # N·mm
+    stress: float  # MPa (axial stress)
+    stress_ratio: float  # ratio of stress to yield strength
 
 
 class Reaction(BaseModel):
@@ -59,6 +61,8 @@ class AnalysisResults(BaseModel):
     member_forces: list[MemberForce]
     reactions: list[Reaction]
     max_deflection: float  # mm
+    safety_status: Literal["PASS", "WARNING", "FAIL"]
+    max_stress_ratio: float
 
 
 class AnalysisRequest(BaseModel):
@@ -79,6 +83,10 @@ class AnalysisDetail(BaseModel):
     status: Literal["pending", "processing", "completed", "failed"]
     model: StructuralModel | None = None
     results: AnalysisResults | None = None
+    material: str = "steel"
+    loads: list[Load] = []
+    scale_factor: float = 1.0
+    detection_method: str = "unknown"
     error: str | None = None
 
 
@@ -94,3 +102,18 @@ class HealthResponse(BaseModel):
     """Health check response."""
     status: str
     version: str
+
+
+class MaterialInfo(BaseModel):
+    """Material properties information."""
+    name: str
+    E: float = Field(description="Elastic modulus (MPa)")
+    fy: float = Field(description="Yield strength (MPa)")
+    density: float = Field(description="Density (kg/m³)")
+    description: str
+
+
+class ReanalysisRequest(BaseModel):
+    """Request body for re-analysis."""
+    material: Optional[str] = Field(default=None, description="New material to use")
+    loads: Optional[list[Load]] = Field(default=None, description="Modified loads to apply")
