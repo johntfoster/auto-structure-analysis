@@ -9,6 +9,8 @@ class Node(BaseModel):
     id: str
     x: float  # mm
     y: float  # mm
+    displacement_x: float = 0.0  # mm
+    displacement_y: float = 0.0  # mm
 
 
 class Member(BaseModel):
@@ -63,6 +65,7 @@ class AnalysisResults(BaseModel):
     max_deflection: float  # mm
     safety_status: Literal["PASS", "WARNING", "FAIL"]
     max_stress_ratio: float
+    nodes_with_displacements: list[Node] = []  # Nodes with displacement data for visualization
 
 
 class AnalysisRequest(BaseModel):

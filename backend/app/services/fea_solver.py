@@ -7,7 +7,8 @@ from app.models.schemas import (
     Load, 
     AnalysisResults, 
     MemberForce, 
-    Reaction
+    Reaction,
+    Node
 )
 from app.services.materials import Material, get_material
 from app.exceptions import SolverError
@@ -136,13 +137,24 @@ def solve(model: StructuralModel, loads: list[Load], material_name: str = "steel
                 ry=ry
             ))
         
-        # Calculate maximum deflection
+        # Calculate maximum deflection and create nodes with displacement data
         max_deflection = 0.0
+        nodes_with_displacements = []
+        
         for node in model.nodes:
             dx = fem.nodes[node.id].DX.get("Combo 1", 0.0)
             dy = fem.nodes[node.id].DY.get("Combo 1", 0.0)
             deflection = math.sqrt(dx**2 + dy**2)
             max_deflection = max(max_deflection, deflection)
+            
+            # Create node with displacement data
+            nodes_with_displacements.append(Node(
+                id=node.id,
+                x=node.x,
+                y=node.y,
+                displacement_x=dx,
+                displacement_y=dy
+            ))
         
         # Determine safety status
         if max_stress_ratio >= 1.0:
@@ -157,7 +169,8 @@ def solve(model: StructuralModel, loads: list[Load], material_name: str = "steel
             reactions=reactions,
             max_deflection=max_deflection,
             safety_status=safety_status,
-            max_stress_ratio=max_stress_ratio
+            max_stress_ratio=max_stress_ratio,
+            nodes_with_displacements=nodes_with_displacements
         )
     
     except Exception as e:

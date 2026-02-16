@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getAnalysis, reanalyze, type AnalysisResult } from '../services/api'
 import ModelEditor from '../components/ModelEditor'
+import ResultsVisualization from '../components/ResultsVisualization'
 import type { StructuralModel } from '../types/model'
 
 export default function Analyze() {
@@ -14,6 +15,10 @@ export default function Analyze() {
   const [loads, setLoads] = useState<Array<{ node_id: number; fx: number; fy: number }>>([])
   const [showEditor, setShowEditor] = useState(false)
   const [editableModel, setEditableModel] = useState<StructuralModel | null>(null)
+  const [showDeformed, setShowDeformed] = useState(false)
+  const [showStress, setShowStress] = useState(true)
+  const [showForces, setShowForces] = useState(true)
+  const [deformationScale, setDeformationScale] = useState(50)
 
   const { data: analysis, isLoading, error, refetch } = useQuery<AnalysisResult>({
     queryKey: ['analysis', id],
@@ -340,6 +345,44 @@ export default function Analyze() {
     }
   }
 
+  const handleDownloadPDF = async () => {
+    if (!id) return
+    
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/analysis/${id}/report`)
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF report')
+      }
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `analysis-report-${id.slice(0, 8)}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('Failed to generate PDF report. Please try again.')
+    }
+  }
+
+  const handleCaptureImage = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `analysis-${id}.png`
+        link.click()
+        URL.revokeObjectURL(url)
+      }
+    })
+  }
+
   const handleModelEdit = (model: StructuralModel) => {
     // Convert model to API format and reanalyze
     const apiLoads = model.nodes
@@ -401,6 +444,18 @@ export default function Analyze() {
             ✏️ Edit Model
           </button>
           <button
+            onClick={handleDownloadPDF}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition"
+          >
+            📄 Download PDF
+          </button>
+          <button
+            onClick={handleCaptureImage}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
+          >
+            📸 Save Image
+          </button>
+          <button
             onClick={handleExport}
             className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-300 transition"
           >
@@ -411,10 +466,64 @@ export default function Analyze() {
 
       {/* Visualization */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Structure Visualization</h2>
-        <div className="border rounded-lg overflow-hidden bg-gray-50">
-          <canvas ref={canvasRef} className="w-full" />
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Structure Visualization</h2>
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showDeformed}
+                onChange={(e) => setShowDeformed(e.target.checked)}
+                className="rounded"
+              />
+              <span>Show Deformed</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showStress}
+                onChange={(e) => setShowStress(e.target.checked)}
+                className="rounded"
+              />
+              <span>Color by Stress</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showForces}
+                onChange={(e) => setShowForces(e.target.checked)}
+                className="rounded"
+              />
+              <span>Show Forces</span>
+            </label>
+          </div>
         </div>
+        
+        {showDeformed && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Deformation Scale: {deformationScale}x
+            </label>
+            <input
+              type="range"
+              min="10"
+              max="200"
+              value={deformationScale}
+              onChange={(e) => setDeformationScale(Number(e.target.value))}
+              className="w-full"
+            />
+          </div>
+        )}
+        
+        <ResultsVisualization
+          nodes={analysis.nodes}
+          members={analysis.members}
+          loads={analysis.loads}
+          showDeformed={showDeformed}
+          showStress={showStress}
+          showForces={showForces}
+          deformationScale={deformationScale}
+        />
       </div>
 
       {/* What-If Controls */}

@@ -23,6 +23,7 @@ from app.services.structure_detector import detect_structure
 from app.services.fea_solver import solve
 from app.services.materials import get_material, list_materials
 from app.services.model_server import get_model_server
+from app.services.report_generator import generate_report
 from app.exceptions import CalibrationError, DetectionError, AnalysisError
 
 router = APIRouter(prefix="/api/v1", tags=["analysis"])
@@ -340,3 +341,49 @@ async def get_model_status():
     """
     model_server = get_model_server()
     return model_server.get_model_info()
+
+
+@router.get("/analysis/{analysis_id}/report")
+async def download_report(analysis_id: str):
+    """
+    Generate and download a PDF report for an analysis.
+    
+    Args:
+        analysis_id: ID of the analysis
+        
+    Returns:
+        PDF file as streaming response
+    """
+    # Check if analysis exists
+    if analysis_id not in analyses_db:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    analysis = analyses_db[analysis_id]
+    
+    # Can't generate report for failed analysis
+    if analysis.status == "failed" or analysis.model is None or analysis.results is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot generate report for failed analysis"
+        )
+    
+    try:
+        # Generate PDF report
+        pdf_bytes = generate_report(
+            model=analysis.model,
+            results=analysis.results,
+            loads=analysis.loads,
+            material=analysis.material,
+            analysis_id=analysis_id
+        )
+        
+        # Return as streaming response
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=analysis_report_{analysis_id[:8]}.pdf"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
