@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getAnalysis, reanalyze, type AnalysisResult } from '../services/api'
 import ModelEditor from '../components/ModelEditor'
-import { StructuralModel } from '../types/model'
+import type { StructuralModel } from '../types/model'
 
 export default function Analyze() {
   const { id } = useParams<{ id: string }>()

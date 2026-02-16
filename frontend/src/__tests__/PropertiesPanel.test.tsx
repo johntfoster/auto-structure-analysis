@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import PropertiesPanel from '../components/PropertiesPanel'
-import { StructuralModel, Node, Member } from '../types/model'
+import type { StructuralModel, Node, Member } from '../types/model'
 
 describe('PropertiesPanel', () => {
   const mockModel: StructuralModel = {
@@ -28,11 +28,12 @@ describe('PropertiesPanel', () => {
     render(<PropertiesPanel {...defaultProps} />)
     
     expect(screen.getByText('Model Summary')).toBeInTheDocument()
-    expect(screen.getByText(/Nodes:/)).toBeInTheDocument()
-    expect(screen.getByText(/Members:/)).toBeInTheDocument()
+    
+    // Check specific stat values - not the labels themselves
     expect(screen.getByText('3')).toBeInTheDocument() // 3 nodes
-    const membersAndSupports = screen.getAllByText('2')
-    expect(membersAndSupports.length).toBeGreaterThanOrEqual(1) // 2 members, 2 supports
+    const twoValues = screen.getAllByText('2')
+    expect(twoValues.length).toBe(2) // 2 members, 2 supports
+    expect(screen.getByText('1')).toBeInTheDocument() // 1 loaded node
   })
 
   it('shows node properties when node is selected', () => {

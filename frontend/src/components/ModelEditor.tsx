@@ -1,12 +1,11 @@
 import { useReducer, useRef, useEffect, useCallback } from 'react'
-import {
+import type {
   EditorState,
   EditorAction,
   StructuralModel,
   Node,
   Member,
   EditorMode,
-  ViewportTransform,
 } from '../types/model'
 import EditorToolbar from './EditorToolbar'
 import PropertiesPanel from './PropertiesPanel'
@@ -285,13 +284,14 @@ export default function ModelEditor({
     })
 
     // Draw temporary member line (during creation)
-    if (state.tempMemberStart) {
-      const startNode = state.model.nodes.find((n) => n.id === state.tempMemberStart)
-      if (startNode) {
-        const start = modelToCanvas(startNode.x, startNode.y)
-        // Would need mouse position to draw to cursor - skip for now
-      }
-    }
+    // TODO: Draw line from tempMemberStart to cursor position
+    // if (state.tempMemberStart) {
+    //   const startNode = state.model.nodes.find((n) => n.id === state.tempMemberStart)
+    //   if (startNode) {
+    //     const start = modelToCanvas(startNode.x, startNode.y)
+    //     // Would need mouse position to draw to cursor
+    //   }
+    // }
 
     // Draw nodes and supports
     state.model.nodes.forEach((node) => {

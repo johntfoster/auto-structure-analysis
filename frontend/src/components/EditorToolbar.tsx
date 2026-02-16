@@ -1,4 +1,4 @@
-import { EditorMode } from '../types/model'
+import type { EditorMode } from '../types/model'
 
 interface EditorToolbarProps {
   mode: EditorMode

@@ -1,4 +1,4 @@
-import { Node, Member, StructuralModel } from '../types/model'
+import type { Node, Member, StructuralModel } from '../types/model'
 
 interface PropertiesPanelProps {
   model: StructuralModel

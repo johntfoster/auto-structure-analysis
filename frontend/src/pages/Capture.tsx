@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { analyzeImage } from '../services/api'
 import ModelEditor from '../components/ModelEditor'
-import { StructuralModel } from '../types/model'
+import type { StructuralModel } from '../types/model'
 
 type CaptureMode = 'initial' | 'camera' | 'preview' | 'annotate' | 'edit'
 
