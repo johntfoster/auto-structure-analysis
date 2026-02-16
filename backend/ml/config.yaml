@@ -1,0 +1,18 @@
+# YOLOv8 Dataset Configuration for Truss Structure Detection
+
+# Dataset path (relative to this file)
+path: dataset
+
+# Training and validation image lists
+train: train.txt
+val: val.txt
+
+# Number of classes
+nc: 4
+
+# Class names
+names:
+  0: joint
+  1: member
+  2: support_pin
+  3: support_roller

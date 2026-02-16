@@ -12,6 +12,8 @@ dependencies = [
     "pillow>=10.4.0",
     "python-multipart>=0.0.9",
     "pydantic>=2.8.0",
+    "ultralytics>=8.0.0",
+    "matplotlib>=3.7.0",
 ]
 
 [project.optional-dependencies]

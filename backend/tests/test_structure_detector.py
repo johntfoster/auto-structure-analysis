@@ -6,18 +6,21 @@ from app.services.structure_detector import detect_structure
 def test_detect_structure_returns_valid_model(sample_image_array):
     """Test that structure detection returns a valid model."""
     scale_factor = 1.0
-    model = detect_structure(sample_image_array, scale_factor)
+    model, detection_method = detect_structure(sample_image_array, scale_factor)
     
     # Verify model has required components
     assert len(model.nodes) > 0
     assert len(model.members) > 0
     assert len(model.supports) > 0
+    
+    # Verify detection method is returned
+    assert detection_method in ["yolo", "mock"]
 
 
 def test_detect_structure_nodes(sample_image_array):
     """Test that detected nodes have valid properties."""
     scale_factor = 1.0
-    model = detect_structure(sample_image_array, scale_factor)
+    model, _ = detect_structure(sample_image_array, scale_factor)
     
     for node in model.nodes:
         assert node.id is not None
@@ -30,7 +33,7 @@ def test_detect_structure_nodes(sample_image_array):
 def test_detect_structure_members(sample_image_array):
     """Test that detected members reference valid nodes."""
     scale_factor = 1.0
-    model = detect_structure(sample_image_array, scale_factor)
+    model, _ = detect_structure(sample_image_array, scale_factor)
     
     node_ids = {node.id for node in model.nodes}
     
@@ -44,7 +47,7 @@ def test_detect_structure_members(sample_image_array):
 def test_detect_structure_supports(sample_image_array):
     """Test that supports reference valid nodes and have valid types."""
     scale_factor = 1.0
-    model = detect_structure(sample_image_array, scale_factor)
+    model, _ = detect_structure(sample_image_array, scale_factor)
     
     node_ids = {node.id for node in model.nodes}
     
@@ -56,8 +59,8 @@ def test_detect_structure_supports(sample_image_array):
 def test_detect_structure_scale_independence(sample_image_array):
     """Test that structure detection works with different scale factors."""
     # Should work regardless of scale factor
-    model1 = detect_structure(sample_image_array, scale_factor=0.5)
-    model2 = detect_structure(sample_image_array, scale_factor=2.0)
+    model1, _ = detect_structure(sample_image_array, scale_factor=0.5)
+    model2, _ = detect_structure(sample_image_array, scale_factor=2.0)
     
     # Same topology regardless of scale
     assert len(model1.nodes) == len(model2.nodes)
@@ -68,7 +71,7 @@ def test_detect_structure_scale_independence(sample_image_array):
 def test_detect_structure_truss_properties(sample_image_array):
     """Test that mock truss has expected properties."""
     scale_factor = 1.0
-    model = detect_structure(sample_image_array, scale_factor)
+    model, _ = detect_structure(sample_image_array, scale_factor)
     
     # Mock truss should have multiple panels
     # Check for reasonable number of nodes (at least 4 for a simple truss)

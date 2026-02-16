@@ -1,8 +1,12 @@
 """Analysis endpoints for structural analysis."""
 
+import io
 import uuid
 from typing import Optional
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Query
+from fastapi.responses import StreamingResponse
+import cv2
+import numpy as np
 
 from app.models.schemas import (
     AnalysisResponse,
@@ -59,8 +63,8 @@ async def analyze_structure(
             side_length_px = ((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)**0.5
             scale_factor = side_length_px / scale_length_mm
         
-        # Detect structure (currently returns mock model)
-        model = detect_structure(image, scale_factor)
+        # Detect structure (tries YOLO, falls back to mock)
+        model, detection_method = detect_structure(image, scale_factor)
         
         # Apply default loads (will be parameterized later)
         # For now, apply a downward load at the center top node
@@ -150,4 +154,44 @@ async def list_analyses(
         total=total,
         page=page,
         page_size=page_size
+    )
+
+
+@router.get("/marker")
+async def generate_marker(
+    id: int = Query(default=0, description="ArUco marker ID (0-49)"),
+    size: int = Query(default=200, description="Marker size in pixels")
+):
+    """
+    Generate ArUco marker image.
+    
+    Args:
+        id: Marker ID from DICT_4X4_50 (0-49)
+        size: Size of marker in pixels
+        
+    Returns:
+        PNG image of the ArUco marker
+    """
+    if id < 0 or id > 49:
+        raise HTTPException(status_code=400, detail="Marker ID must be between 0 and 49")
+    
+    if size < 50 or size > 1000:
+        raise HTTPException(status_code=400, detail="Size must be between 50 and 1000 pixels")
+    
+    # Generate ArUco marker
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    marker_img = cv2.aruco.generateImageMarker(aruco_dict, id, size)
+    
+    # Convert to PNG
+    success, buffer = cv2.imencode('.png', marker_img)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to encode marker image")
+    
+    # Return as streaming response
+    return StreamingResponse(
+        io.BytesIO(buffer.tobytes()),
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f"inline; filename=aruco_marker_{id}.png"
+        }
     )

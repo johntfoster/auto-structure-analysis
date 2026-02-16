@@ -5,15 +5,18 @@ import App from '../App'
 describe('App', () => {
   it('renders without crashing', () => {
     render(<App />)
-    expect(screen.getByText(/Analyze Structures from Photos/i)).toBeInTheDocument()
+    expect(screen.getByText(/Snap. Analyze. Build with confidence./i)).toBeInTheDocument()
   })
 
   it('renders navigation links', () => {
     render(<App />)
-    expect(screen.getByText(/Home/i)).toBeInTheDocument()
-    expect(screen.getByText(/Capture/i)).toBeInTheDocument()
-    expect(screen.getByText(/History/i)).toBeInTheDocument()
-    expect(screen.getByText(/Settings/i)).toBeInTheDocument()
+    // Use getAllByText for links that might appear multiple times
+    const homeLinks = screen.getAllByText(/Home/i)
+    expect(homeLinks.length).toBeGreaterThan(0)
+    
+    expect(screen.getAllByRole('link', { name: /Capture/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /History/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: /Settings/i }).length).toBeGreaterThan(0)
   })
 
   it('renders the home page by default', () => {
