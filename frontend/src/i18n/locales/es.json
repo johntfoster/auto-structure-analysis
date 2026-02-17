@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "Análisis Automático de Estructuras",
+    "tagline": "Asistente de ingeniería estructural impulsado por IA"
+  },
+  "nav": {
+    "home": "Inicio",
+    "camera": "Cámara",
+    "editor": "Editor",
+    "results": "Resultados",
+    "marker": "Marcador",
+    "history": "Historial"
+  },
+  "home": {
+    "welcome": "Bienvenido al Análisis Automático de Estructuras",
+    "description": "Analiza modelos estructurales usando tu cámara e IA",
+    "getStarted": "Comenzar",
+    "features": {
+      "title": "Características",
+      "photoCapture": "Captura de Foto",
+      "photoDesc": "Captura modelos estructurales con tu cámara",
+      "aiDetection": "Detección IA",
+      "aiDesc": "Detección automática de estructuras usando YOLO",
+      "feaAnalysis": "Análisis FEA",
+      "feaDesc": "Análisis de elementos finitos con PyNite",
+      "visualization": "Visualización",
+      "vizDesc": "Visualización interactiva de resultados"
+    }
+  },
+  "camera": {
+    "title": "Capturar Estructura",
+    "takePhoto": "Tomar Foto",
+    "analyzing": "Analizando...",
+    "upload": "Subir Imagen",
+    "scale": "Escala (mm)",
+    "scaleHelp": "Longitud física del marcador ArUco",
+    "analyze": "Analizar Estructura"
+  },
+  "editor": {
+    "title": "Editor de Modelo",
+    "tools": "Herramientas",
+    "select": "Seleccionar",
+    "addNode": "Agregar Nodo",
+    "addMember": "Agregar Miembro",
+    "delete": "Eliminar",
+    "undo": "Deshacer",
+    "redo": "Rehacer",
+    "properties": "Propiedades",
+    "material": "Material",
+    "structureType": "Tipo de Estructura",
+    "truss": "Cercha",
+    "frame": "Marco",
+    "supports": "Apoyos",
+    "loads": "Cargas",
+    "analyze": "Analizar"
+  },
+  "results": {
+    "title": "Resultados del Análisis",
+    "summary": "Resumen",
+    "safetyStatus": "Estado de Seguridad",
+    "maxStressRatio": "Relación de Esfuerzo Máximo",
+    "maxDeflection": "Deflexión Máxima",
+    "memberForces": "Fuerzas en Miembros",
+    "reactions": "Reacciones",
+    "codeChecks": "Verificaciones de Código",
+    "pass": "APROBADO",
+    "warning": "ADVERTENCIA",
+    "fail": "FALLIDO",
+    "export": "Exportar Reporte",
+    "share": "Compartir"
+  },
+  "loads": {
+    "title": "Casos de Carga",
+    "addCase": "Agregar Caso de Carga",
+    "caseName": "Nombre del Caso",
+    "caseType": "Tipo",
+    "dead": "Carga Muerta",
+    "live": "Carga Viva",
+    "wind": "Carga de Viento",
+    "snow": "Carga de Nieve",
+    "seismic": "Carga Sísmica",
+    "other": "Otra",
+    "combinations": "Combinaciones de Carga",
+    "addCombination": "Agregar Combinación",
+    "factors": "Factores",
+    "envelope": "Resultados Envolventes"
+  },
+  "materials": {
+    "steel": "Acero A36",
+    "aluminum": "Aluminio 6061-T6",
+    "wood": "Pino del Sur"
+  },
+  "units": {
+    "mm": "mm",
+    "n": "N",
+    "mpa": "MPa"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "next": "Siguiente"
+  },
+  "messages": {
+    "analysisComplete": "Análisis completo",
+    "analysisFailed": "Análisis fallido",
+    "noModel": "No hay modelo disponible",
+    "loadingModel": "Cargando modelo...",
+    "selectLanguage": "Seleccionar Idioma"
+  },
+  "code": {
+    "aisc": "AISC 360-16",
+    "nds": "NDS 2018",
+    "slenderness": "Relación de Esbeltez",
+    "compression": "Capacidad a Compresión",
+    "tension": "Capacidad a Tensión",
+    "combined": "Carga Combinada",
+    "reference": "Referencia"
+  }
+}

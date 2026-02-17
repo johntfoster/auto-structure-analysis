@@ -32,6 +32,7 @@ class StructuralModel(BaseModel):
     nodes: list[Node]
     members: list[Member]
     supports: list[Support]
+    structure_type: Literal["truss", "frame"] = "truss"  # Default to truss for backward compatibility
 
 
 class Load(BaseModel):
@@ -39,6 +40,21 @@ class Load(BaseModel):
     node_id: str
     fx: float = 0.0  # N
     fy: float = 0.0  # N
+
+
+class LoadCase(BaseModel):
+    """A named load case (e.g., dead, live, wind)."""
+    name: str
+    type: Literal["dead", "live", "wind", "snow", "seismic", "other"] = "other"
+    loads: list[Load]
+    description: str = ""
+
+
+class LoadCombination(BaseModel):
+    """Load combination with factors (e.g., 1.2D + 1.6L)."""
+    name: str
+    factors: dict[str, float]  # Map of load case name to factor
+    description: str = ""
 
 
 class MemberForce(BaseModel):

@@ -1,9 +1,13 @@
 """Tests for report download endpoint."""
 
 import pytest
+import tempfile
+import os
 from fastapi.testclient import TestClient
 from app.main import app
-from app.routers.analysis import analyses_db
+from app.database import get_database
+from app.config import Settings
+import app.config as config_module
 from app.models.schemas import (
     AnalysisDetail,
     StructuralModel,
@@ -16,18 +20,45 @@ from app.models.schemas import (
     Load
 )
 
-client = TestClient(app)
+
+@pytest.fixture
+def temp_db_path():
+    """Create a temporary database path."""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as f:
+        db_path = f.name
+    
+    yield db_path
+    
+    # Cleanup
+    if os.path.exists(db_path):
+        os.unlink(db_path)
 
 
-@pytest.fixture(autouse=True)
-def clear_analyses_db():
-    """Clear analyses database before each test."""
-    analyses_db.clear()
-    yield
-    analyses_db.clear()
+@pytest.fixture
+def client(temp_db_path):
+    """Create a test client with a temporary database."""
+    # Override settings with temp database
+    original_settings = config_module.settings
+    config_module.settings = Settings(
+        database_url=f"sqlite:///{temp_db_path}",
+        api_key_enabled=False,
+        rate_limit_enabled=False
+    )
+    
+    # Clear global database instance
+    import app.database as db_module
+    db_module._db = None
+    
+    test_client = TestClient(app)
+    
+    yield test_client
+    
+    # Restore original settings
+    config_module.settings = original_settings
+    db_module._db = None
 
 
-def test_download_report_success():
+def test_download_report_success(client):
     """Test successful PDF report download."""
     # Create a test analysis in the database
     analysis_id = "test-analysis-123"
@@ -72,7 +103,7 @@ def test_download_report_success():
     
     loads = [Load(node_id="2", fx=0.0, fy=-5000.0)]
     
-    analyses_db[analysis_id] = AnalysisDetail(
+    analysis = AnalysisDetail(
         analysis_id=analysis_id,
         status="completed",
         model=model,
@@ -83,6 +114,10 @@ def test_download_report_success():
         detection_method="mock",
         error=None,
     )
+    
+    # Save to database
+    db = get_database()
+    db.save_analysis(analysis)
     
     # Download report
     response = client.get(f"/api/v1/analysis/{analysis_id}/report")
@@ -99,7 +134,7 @@ def test_download_report_success():
     assert pdf_bytes.startswith(b"%PDF")
 
 
-def test_download_report_not_found():
+def test_download_report_not_found(client):
     """Test report download for non-existent analysis."""
     response = client.get("/api/v1/analysis/non-existent-id/report")
     
@@ -107,11 +142,11 @@ def test_download_report_not_found():
     assert "not found" in response.json()["detail"].lower()
 
 
-def test_download_report_failed_analysis():
+def test_download_report_failed_analysis(client):
     """Test report download for failed analysis."""
     analysis_id = "failed-analysis-123"
     
-    analyses_db[analysis_id] = AnalysisDetail(
+    analysis = AnalysisDetail(
         analysis_id=analysis_id,
         status="failed",
         model=None,
@@ -123,13 +158,17 @@ def test_download_report_failed_analysis():
         error="Analysis failed",
     )
     
+    # Save to database
+    db = get_database()
+    db.save_analysis(analysis)
+    
     response = client.get(f"/api/v1/analysis/{analysis_id}/report")
     
     assert response.status_code == 400
     assert "failed" in response.json()["detail"].lower()
 
 
-def test_download_report_filename_format():
+def test_download_report_filename_format(client):
     """Test that report filename includes analysis ID."""
     analysis_id = "test-filename-analysis"
     
@@ -150,7 +189,7 @@ def test_download_report_filename_format():
         nodes_with_displacements=[],
     )
     
-    analyses_db[analysis_id] = AnalysisDetail(
+    analysis = AnalysisDetail(
         analysis_id=analysis_id,
         status="completed",
         model=model,
@@ -161,6 +200,10 @@ def test_download_report_filename_format():
         detection_method="mock",
         error=None,
     )
+    
+    # Save to database
+    db = get_database()
+    db.save_analysis(analysis)
     
     response = client.get(f"/api/v1/analysis/{analysis_id}/report")
     

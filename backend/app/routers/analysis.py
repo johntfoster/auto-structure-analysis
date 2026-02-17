@@ -4,8 +4,10 @@ import io
 import uuid
 import math
 from typing import Optional
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Query
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Query, Depends, Request
 from fastapi.responses import StreamingResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import cv2
 import numpy as np
 
@@ -18,6 +20,7 @@ from app.models.schemas import (
     ReanalysisRequest,
 )
 from app.utils.image_processing import load_image, resize_for_detection
+from app.utils.validation import validate_image_upload
 from app.services.aruco_detector import detect_aruco
 from app.services.structure_detector import detect_structure
 from app.services.fea_solver import solve
@@ -25,30 +28,41 @@ from app.services.materials import get_material, list_materials
 from app.services.model_server import get_model_server
 from app.services.report_generator import generate_report
 from app.exceptions import CalibrationError, DetectionError, AnalysisError
+from app.database import get_database, Database
+from app.middleware.auth import verify_api_key
+from app.config import settings
 
 router = APIRouter(prefix="/api/v1", tags=["analysis"])
 
-# In-memory storage for analyses (would be database in production)
-analyses_db: dict[str, AnalysisDetail] = {}
+# Initialize limiter
+limiter = Limiter(key_func=get_remote_address)
 
 
-@router.post("/analyze", response_model=AnalysisResponse)
+@router.post("/analyze", response_model=AnalysisResponse, dependencies=[Depends(verify_api_key)])
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute" if settings.rate_limit_enabled else "1000/minute")
 async def analyze_structure(
+    request: Request,
     file: UploadFile = File(...),
     scale_length_mm: Optional[float] = Form(default=None),
-    material: str = Form(default="steel")
+    material: str = Form(default="steel"),
+    db: Database = Depends(get_database)
 ):
     """
     Analyze a structure from an uploaded image.
     
     Args:
+        request: FastAPI request object (for rate limiting)
         file: Image file containing structure and ArUco marker
         scale_length_mm: Physical size of the ArUco marker in mm (optional if marker detected)
         material: Material to use for analysis (steel, aluminum, or wood)
+        db: Database instance
         
     Returns:
         Analysis ID and status
     """
+    # Validate file upload
+    await validate_image_upload(file)
+    
     # Validate material before starting analysis
     try:
         mat = get_material(material)
@@ -110,7 +124,7 @@ async def analyze_structure(
         results = solve(model, loads, material_name=material)
         
         # Step 5: Store results
-        analyses_db[analysis_id] = AnalysisDetail(
+        analysis_detail = AnalysisDetail(
             analysis_id=analysis_id,
             status="completed",
             model=model,
@@ -121,6 +135,7 @@ async def analyze_structure(
             detection_method=detection_method,
             error=None
         )
+        db.save_analysis(analysis_detail)
         
         return AnalysisResponse(
             analysis_id=analysis_id,
@@ -130,7 +145,7 @@ async def analyze_structure(
         
     except (CalibrationError, DetectionError, AnalysisError) as e:
         # Store error result
-        analyses_db[analysis_id] = AnalysisDetail(
+        analysis_detail = AnalysisDetail(
             analysis_id=analysis_id,
             status="failed",
             model=None,
@@ -141,12 +156,13 @@ async def analyze_structure(
             detection_method="none",
             error=str(e)
         )
+        db.save_analysis(analysis_detail)
         
         raise HTTPException(status_code=400, detail=str(e))
         
     except Exception as e:
         # Store unexpected error
-        analyses_db[analysis_id] = AnalysisDetail(
+        analysis_detail = AnalysisDetail(
             analysis_id=analysis_id,
             status="failed",
             model=None,
@@ -157,31 +173,35 @@ async def analyze_structure(
             detection_method="none",
             error=str(e)
         )
+        db.save_analysis(analysis_detail)
         
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
-@router.get("/analysis/{analysis_id}", response_model=AnalysisDetail)
-async def get_analysis(analysis_id: str):
+@router.get("/analysis/{analysis_id}", response_model=AnalysisDetail, dependencies=[Depends(verify_api_key)])
+async def get_analysis(analysis_id: str, db: Database = Depends(get_database)):
     """
     Get analysis results by ID.
     
     Args:
         analysis_id: Unique analysis identifier
+        db: Database instance
         
     Returns:
         Analysis details including model and results
     """
-    if analysis_id not in analyses_db:
+    analysis = db.get_analysis(analysis_id)
+    if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     
-    return analyses_db[analysis_id]
+    return analysis
 
 
-@router.get("/analyses", response_model=AnalysisListResponse)
+@router.get("/analyses", response_model=AnalysisListResponse, dependencies=[Depends(verify_api_key)])
 async def list_analyses(
     page: int = 1,
-    page_size: int = 10
+    page_size: int = 10,
+    db: Database = Depends(get_database)
 ):
     """
     List all analyses with pagination.
@@ -189,21 +209,19 @@ async def list_analyses(
     Args:
         page: Page number (1-indexed)
         page_size: Number of items per page
+        db: Database instance
         
     Returns:
         Paginated list of analyses
     """
-    all_analyses = list(analyses_db.values())
-    total = len(all_analyses)
+    # Calculate skip offset
+    skip = (page - 1) * page_size
     
-    # Calculate pagination
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    
-    paginated_analyses = all_analyses[start_idx:end_idx]
+    # Get analyses from database
+    analyses, total = db.list_analyses(skip=skip, limit=page_size)
     
     return AnalysisListResponse(
-        analyses=paginated_analyses,
+        analyses=analyses,
         total=total,
         page=page,
         page_size=page_size
@@ -231,23 +249,30 @@ async def get_materials():
     ]
 
 
-@router.post("/analysis/{analysis_id}/reanalyze", response_model=AnalysisDetail)
-async def reanalyze_structure(analysis_id: str, request: ReanalysisRequest):
+@router.post("/analysis/{analysis_id}/reanalyze", response_model=AnalysisDetail, dependencies=[Depends(verify_api_key)])
+@limiter.limit(f"{settings.rate_limit_per_minute}/minute" if settings.rate_limit_enabled else "1000/minute")
+async def reanalyze_structure(
+    request: Request,
+    analysis_id: str,
+    reanalysis_request: ReanalysisRequest,
+    db: Database = Depends(get_database)
+):
     """
     Re-run analysis with modified parameters.
     
     Args:
+        request: FastAPI request object (for rate limiting)
         analysis_id: ID of existing analysis
-        request: Reanalysis parameters (material and/or loads)
+        reanalysis_request: Reanalysis parameters (material and/or loads)
+        db: Database instance
         
     Returns:
         Updated analysis results
     """
     # Check if analysis exists
-    if analysis_id not in analyses_db:
+    original = db.get_analysis(analysis_id)
+    if not original:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    
-    original = analyses_db[analysis_id]
     
     # Can't reanalyze a failed analysis without a model
     if original.status == "failed" or original.model is None:
@@ -258,7 +283,7 @@ async def reanalyze_structure(analysis_id: str, request: ReanalysisRequest):
     
     try:
         # Use new material or keep original
-        material = request.material if request.material else original.material
+        material = reanalysis_request.material if reanalysis_request.material else original.material
         
         # Validate material
         try:
@@ -267,13 +292,13 @@ async def reanalyze_structure(analysis_id: str, request: ReanalysisRequest):
             raise HTTPException(status_code=400, detail=str(e))
         
         # Use new loads or keep original
-        loads = request.loads if request.loads is not None else original.loads
+        loads = reanalysis_request.loads if reanalysis_request.loads is not None else original.loads
         
         # Re-run FEA with updated parameters
         results = solve(original.model, loads, material_name=material)
         
         # Update stored analysis
-        analyses_db[analysis_id] = AnalysisDetail(
+        updated_analysis = AnalysisDetail(
             analysis_id=analysis_id,
             status="completed",
             model=original.model,
@@ -284,8 +309,9 @@ async def reanalyze_structure(analysis_id: str, request: ReanalysisRequest):
             detection_method=original.detection_method,
             error=None
         )
+        db.save_analysis(updated_analysis)
         
-        return analyses_db[analysis_id]
+        return updated_analysis
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Reanalysis failed: {str(e)}")
@@ -343,22 +369,22 @@ async def get_model_status():
     return model_server.get_model_info()
 
 
-@router.get("/analysis/{analysis_id}/report")
-async def download_report(analysis_id: str):
+@router.get("/analysis/{analysis_id}/report", dependencies=[Depends(verify_api_key)])
+async def download_report(analysis_id: str, db: Database = Depends(get_database)):
     """
     Generate and download a PDF report for an analysis.
     
     Args:
         analysis_id: ID of the analysis
+        db: Database instance
         
     Returns:
         PDF file as streaming response
     """
     # Check if analysis exists
-    if analysis_id not in analyses_db:
+    analysis = db.get_analysis(analysis_id)
+    if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    
-    analysis = analyses_db[analysis_id]
     
     # Can't generate report for failed analysis
     if analysis.status == "failed" or analysis.model is None or analysis.results is None:

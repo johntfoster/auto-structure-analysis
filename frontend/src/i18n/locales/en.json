@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "Auto Structure Analysis",
+    "tagline": "AI-powered structural engineering assistant"
+  },
+  "nav": {
+    "home": "Home",
+    "camera": "Camera",
+    "editor": "Editor",
+    "results": "Results",
+    "marker": "Marker",
+    "history": "History"
+  },
+  "home": {
+    "welcome": "Welcome to Auto Structure Analysis",
+    "description": "Analyze structural models using your camera and AI",
+    "getStarted": "Get Started",
+    "features": {
+      "title": "Features",
+      "photoCapture": "Photo Capture",
+      "photoDesc": "Capture structural models with your camera",
+      "aiDetection": "AI Detection",
+      "aiDesc": "Automatic structure detection using YOLO",
+      "feaAnalysis": "FEA Analysis",
+      "feaDesc": "Finite element analysis with PyNite",
+      "visualization": "Visualization",
+      "vizDesc": "Interactive results visualization"
+    }
+  },
+  "camera": {
+    "title": "Capture Structure",
+    "takePhoto": "Take Photo",
+    "analyzing": "Analyzing...",
+    "upload": "Upload Image",
+    "scale": "Scale (mm)",
+    "scaleHelp": "Physical length of ArUco marker",
+    "analyze": "Analyze Structure"
+  },
+  "editor": {
+    "title": "Model Editor",
+    "tools": "Tools",
+    "select": "Select",
+    "addNode": "Add Node",
+    "addMember": "Add Member",
+    "delete": "Delete",
+    "undo": "Undo",
+    "redo": "Redo",
+    "properties": "Properties",
+    "material": "Material",
+    "structureType": "Structure Type",
+    "truss": "Truss",
+    "frame": "Frame",
+    "supports": "Supports",
+    "loads": "Loads",
+    "analyze": "Analyze"
+  },
+  "results": {
+    "title": "Analysis Results",
+    "summary": "Summary",
+    "safetyStatus": "Safety Status",
+    "maxStressRatio": "Max Stress Ratio",
+    "maxDeflection": "Max Deflection",
+    "memberForces": "Member Forces",
+    "reactions": "Reactions",
+    "codeChecks": "Code Checks",
+    "pass": "PASS",
+    "warning": "WARNING",
+    "fail": "FAIL",
+    "export": "Export Report",
+    "share": "Share"
+  },
+  "loads": {
+    "title": "Load Cases",
+    "addCase": "Add Load Case",
+    "caseName": "Case Name",
+    "caseType": "Type",
+    "dead": "Dead Load",
+    "live": "Live Load",
+    "wind": "Wind Load",
+    "snow": "Snow Load",
+    "seismic": "Seismic Load",
+    "other": "Other",
+    "combinations": "Load Combinations",
+    "addCombination": "Add Combination",
+    "factors": "Factors",
+    "envelope": "Envelope Results"
+  },
+  "materials": {
+    "steel": "Steel A36",
+    "aluminum": "Aluminum 6061-T6",
+    "wood": "Southern Pine"
+  },
+  "units": {
+    "mm": "mm",
+    "n": "N",
+    "mpa": "MPa"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next"
+  },
+  "messages": {
+    "analysisComplete": "Analysis complete",
+    "analysisFailed": "Analysis failed",
+    "noModel": "No model available",
+    "loadingModel": "Loading model...",
+    "selectLanguage": "Select Language"
+  },
+  "code": {
+    "aisc": "AISC 360-16",
+    "nds": "NDS 2018",
+    "slenderness": "Slenderness Ratio",
+    "compression": "Compression Capacity",
+    "tension": "Tension Capacity",
+    "combined": "Combined Loading",
+    "reference": "Reference"
+  }
+}

@@ -10,6 +10,9 @@ import Marker from './pages/Marker'
 import Settings from './pages/Settings'
 import InstallPrompt from './components/InstallPrompt'
 
+// Import i18n configuration
+import './i18n/config'
+
 const queryClient = new QueryClient()
 
 function App() {
